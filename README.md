@@ -102,8 +102,8 @@ Go to **Settings → Pages → Deploy from a branch → `main` / root**. The app
 This is an educational project. The eligibility check is a pre-screen only. The blood bank's medical officer and laboratory cross-matching make the final decision. All demo donors are fictional.
 
 ## 👤 Author
-**&lt;Your Name&gt;**, B.Tech CSE (AI & ML), Dayananda Sagar University, Bengaluru
-GitHub: [@&lt;your-username&gt;](https://github.com/<your-username>)
+**&lt;Manyashree;**, B.Tech CSE (AI & ML), Dayananda Sagar University, Bengaluru
+GitHub: [@&lt;Manyashree24&gt;](https://github.com/Manyashree24)>)
 
 ## 📄 License
 MIT. See [LICENSE](LICENSE).
