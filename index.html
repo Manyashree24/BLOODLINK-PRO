@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BloodLink Pro – Blood Bank & Donor Management</title>
+<meta name="description" content="Blood bank system: donor registry, eligibility screening, request matching, inventory with expiry tracking, compatibility rules and an ML donor-return predictor.">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  :root{--brand:#c8102e;--brand-soft:#fbe8eb}
+  [data-theme=dark]{--brand:#f0506a;--brand-ink:#2a0008;--brand-soft:#3a1219}
+  .grp{display:inline-grid;place-items:center;min-width:42px;height:28px;padding:0 8px;border-radius:8px;font-weight:800;font-size:.85rem;background:var(--brand-soft);color:var(--brand)}
+  .grp-pick{display:flex;flex-wrap:wrap;gap:8px}
+  .grp-pick button{width:62px;height:46px;border-radius:10px;border:2px solid var(--line);background:var(--card);font:inherit;font-weight:800;cursor:pointer;color:var(--ink)}
+  .grp-pick button.on{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+  .matrix td,.matrix th{text-align:center;padding:8px}
+  .matrix td.y{background:var(--good-soft);color:var(--good);font-weight:800}
+  .matrix .hl{outline:2px solid var(--brand);outline-offset:-2px}
+  .urg-Critical{background:var(--bad);color:#fff}
+  .stock-tile{border-radius:12px;padding:12px;text-align:center;border:1px solid var(--line)}
+  .stock-tile b{display:block;font-size:1.5rem}
+  .stock-tile.low{background:var(--bad-soft);border-color:transparent}
+  .stock-tile.mid{background:var(--warn-soft);border-color:transparent}
+  .result-box{border-radius:12px;padding:16px;margin-top:14px}
+  .result-box.ok{background:var(--good-soft)} .result-box.no{background:var(--bad-soft)}
+  .result-box ul{margin:8px 0 0;padding-left:20px}
+  .likely{display:flex;align-items:center;gap:6px;min-width:110px}
+  .likely .progress{flex:1;height:6px}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="#dashboard"><span class="logo">🩸</span>BloodLink<span class="badge brand">Pro</span></a>
+  <nav class="nav">
+    <a href="#dashboard" data-nav="dashboard">Dashboard</a>
+    <a href="#eligibility" data-nav="eligibility">Eligibility</a>
+    <a href="#donors" data-nav="donors">Donors</a>
+    <a href="#requests" data-nav="requests">Requests</a>
+    <a href="#inventory" data-nav="inventory">Inventory</a>
+    <a href="#compatibility" data-nav="compatibility">Compatibility</a>
+    <a href="#ai" data-nav="ai">Donor AI</a>
+  </nav>
+  <button class="icon-btn" id="themeBtn" title="Toggle dark mode">🌙</button>
+</div></header>
+
+<main class="container">
+
+<!-- DASHBOARD -->
+<section data-view="dashboard">
+  <div class="page-head"><div><h1>Blood bank dashboard</h1><p id="dashDate"></p></div>
+    <div class="row"><button class="btn ghost" id="demoBtn">✨ Load demo data</button><a class="btn primary" href="#requests">+ New request</a></div></div>
+  <div id="onboard"></div>
+  <div class="grid g4" style="margin-bottom:16px" id="kpis"></div>
+  <div class="grid g3">
+    <div class="card span2"><div class="card-head"><h3>Usable units by blood group</h3><span class="muted small">red = critically low (&lt; 5 units)</span></div><div id="stockTiles" class="grid g4" style="margin-bottom:12px"></div><div id="chStock"></div></div>
+    <div class="card"><div class="card-head"><h3>Alerts</h3></div><div id="alerts"></div></div>
+    <div class="card"><div class="card-head"><h3>Stock by component</h3></div><div id="chComp"></div></div>
+    <div class="card"><div class="card-head"><h3>Donor blood groups</h3></div><div id="chDonorGrp"></div></div>
+    <div class="card"><div class="card-head"><h3>Units expiring (next 14 days)</h3></div><div id="chExpiry"></div></div>
+  </div>
+</section>
+
+<!-- ELIGIBILITY -->
+<section data-view="eligibility" hidden>
+  <div class="page-head"><div><h1>Donor eligibility screening</h1><p>Quick pre-screening based on general donor-selection criteria (e.g. NBTC, India).</p></div></div>
+  <div class="grid g2">
+    <form class="card stack" id="eligForm">
+      <div class="form-grid">
+        <div><label class="f">Age (years)</label><input id="eAge" type="number" min="1" max="110" required></div>
+        <div><label class="f">Weight (kg)</label><input id="eWt" type="number" min="1" max="250" required></div>
+        <div><label class="f">Sex</label><select id="eSex"><option value="M">Male</option><option value="F">Female</option></select></div>
+        <div><label class="f">Haemoglobin g/dL (optional)</label><input id="eHb" type="number" step="0.1" min="3" max="25"></div>
+        <div><label class="f">Last donation (if any)</label><input id="eLast" type="date"></div>
+        <div><label class="f">BP (optional)</label><div class="row" style="flex-wrap:nowrap;gap:4px"><input id="eSys" type="number" placeholder="sys"><span>/</span><input id="eDia" type="number" placeholder="dia"></div></div>
+      </div>
+      <div>
+        <label class="f">In the recent past have you…</label>
+        <label class="check"><input type="checkbox" data-q="fever"> had fever, cold or any infection (last 2 weeks)?</label>
+        <label class="check"><input type="checkbox" data-q="tattoo"> had a tattoo, piercing or acupuncture (last 12 months)?</label>
+        <label class="check"><input type="checkbox" data-q="antibiotic"> taken antibiotics (last 7 days)?</label>
+        <label class="check"><input type="checkbox" data-q="surgery"> had major surgery (last 12 months)?</label>
+        <label class="check"><input type="checkbox" data-q="vaccine"> had a live vaccine, e.g. MMR or chickenpox (last 4 weeks)?</label>
+        <label class="check"><input type="checkbox" data-q="alcohol"> had alcohol (last 24 hours)?</label>
+        <label class="check"><input type="checkbox" data-q="dental"> had dental work or a tooth extraction (last 72 hours)?</label>
+        <label class="check fem"><input type="checkbox" data-q="preg"> been pregnant, breastfeeding, or delivered/miscarried (last 12 months)?</label>
+        <label class="check fem"><input type="checkbox" data-q="period"> currently menstruating?</label>
+      </div>
+      <button class="btn primary" type="submit">Check eligibility</button>
+    </form>
+    <div class="card"><div class="card-head"><h3>Result</h3></div><div id="eligRes"><div class="empty">Fill in the form and click “Check eligibility”.</div></div></div>
+  </div>
+</section>
+
+<!-- DONORS -->
+<section data-view="donors" hidden>
+  <div class="page-head"><div><h1>Donor registry</h1><p>Return likelihood is predicted by the Donor AI model from each donor's history.</p></div><button class="btn primary" id="addDonor">+ Register donor</button></div>
+  <div class="card">
+    <div class="row" style="margin-bottom:12px">
+      <input id="dSearch" placeholder="Search name, city, phone…" style="max-width:260px">
+      <select id="dGroup" style="width:auto"><option value="">All groups</option></select>
+      <select id="dCity" style="width:auto"><option value="">All cities</option></select>
+      <label class="check"><input type="checkbox" id="dElig"> Eligible now only</label>
+      <span class="spacer"></span><span class="muted small" id="dCount"></span>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Donor</th><th>Group</th><th>City</th><th>Donations</th><th>Last donated</th><th>Status</th><th>Return likelihood</th><th></th></tr></thead><tbody id="dBody"></tbody></table></div>
+  </div>
+</section>
+
+<!-- REQUESTS -->
+<section data-view="requests" hidden>
+  <div class="page-head"><div><h1>Blood requests</h1><p>Create a request and match it against stock and compatible donors.</p></div></div>
+  <div class="grid g3">
+    <form class="card stack" id="reqForm">
+      <h3>New request</h3>
+      <div><label class="f">Patient name / ID</label><input id="rPatient" required></div>
+      <div class="form-grid"><div><label class="f">Blood group</label><select id="rGroup"></select></div><div><label class="f">Component</label><select id="rComp"></select></div></div>
+      <div class="form-grid"><div><label class="f">Units</label><input id="rUnits" type="number" min="1" max="20" value="1"></div><div><label class="f">Urgency</label><select id="rUrg"><option>Critical</option><option>Urgent</option><option selected>Routine</option></select></div></div>
+      <div><label class="f">Hospital</label><input id="rHosp" required placeholder="e.g. City General Hospital"></div>
+      <div class="form-grid"><div><label class="f">City</label><input id="rCity" list="cityList" required></div><div><label class="f">Needed by</label><input id="rBy" type="date"></div></div>
+      <datalist id="cityList"></datalist>
+      <button class="btn primary" type="submit">Create & match</button>
+    </form>
+    <div class="card span2">
+      <div class="card-head"><h3>Requests</h3><div class="seg" id="reqTabs"><button class="on" data-s="open">Open</button><button data-s="fulfilled">Fulfilled</button></div></div>
+      <div id="reqList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- INVENTORY -->
+<section data-view="inventory" hidden>
+  <div class="page-head"><div><h1>Blood inventory</h1><p>Expiry is set automatically from component shelf life.</p></div>
+    <div class="row"><button class="btn ghost" id="discardBtn">🗑 Discard expired</button><button class="btn ghost" id="expInv">📄 Export CSV</button><button class="btn primary" id="addUnits">+ Add units</button></div></div>
+  <div class="card">
+    <div class="row" style="margin-bottom:12px"><select id="iGroup" style="width:auto"><option value="">All groups</option></select><select id="iComp" style="width:auto"><option value="">All components</option></select><select id="iStatus" style="width:auto"><option value="">All statuses</option><option value="ok">Usable</option><option value="soon">Expiring ≤ 3 days</option><option value="expired">Expired</option></select><span class="spacer"></span><span class="muted small" id="iCount"></span></div>
+    <div class="table-wrap"><table><thead><tr><th>Bag ID</th><th>Group</th><th>Component</th><th>Units</th><th>Collected</th><th>Expires</th><th>Status</th><th></th></tr></thead><tbody id="iBody"></tbody></table></div>
+  </div>
+</section>
+
+<!-- COMPATIBILITY -->
+<section data-view="compatibility" hidden>
+  <div class="page-head"><div><h1>Blood compatibility</h1><p>Who can give to whom – red cells, plasma and platelets follow different rules.</p></div>
+    <div class="seg" id="cMode"><button class="on" data-m="Red cells (PRBC)">Red cells</button><button data-m="Plasma (FFP)">Plasma</button><button data-m="Platelets">Platelets</button><button data-m="Whole blood">Whole blood</button></div></div>
+  <div class="grid g2">
+    <div class="card"><div class="card-head"><h3>Choose a blood group</h3></div><div class="grp-pick" id="cPick"></div><div id="cOut" style="margin-top:14px"></div></div>
+    <div class="card"><div class="card-head"><h3>Why? Antigens & antibodies</h3></div>
+      <div class="table-wrap"><table><thead><tr><th>Group</th><th>Antigens on red cells</th><th>Antibodies in plasma</th></tr></thead><tbody>
+        <tr><td><span class="grp">A</span></td><td>A</td><td>Anti-B</td></tr><tr><td><span class="grp">B</span></td><td>B</td><td>Anti-A</td></tr>
+        <tr><td><span class="grp">AB</span></td><td>A and B</td><td>None</td></tr><tr><td><span class="grp">O</span></td><td>None</td><td>Anti-A and Anti-B</td></tr></tbody></table></div>
+      <p class="muted small" id="cRule"></p></div>
+    <div class="card span2"><div class="card-head"><h3>Full compatibility chart</h3><span class="muted small">rows = donor · columns = recipient</span></div><div class="table-wrap"><table class="matrix" id="cMatrix"></table></div></div>
+  </div>
+</section>
+
+<!-- DONOR AI -->
+<section data-view="ai" hidden>
+  <div class="page-head"><div><h1>Donor AI – will this donor donate again?</h1><p>Logistic regression on the RFMT model (Recency, Frequency, Time) used in blood-donation research.</p></div>
+    <div class="row"><label class="btn ghost" for="csvUp">📂 Upload UCI dataset (CSV)</label><input type="file" id="csvUp" accept=".csv,.data,.txt" hidden><button class="btn ghost" id="synthBtn">Use synthetic data</button><button class="btn primary" id="trainBtn">⚙️ Train model</button></div></div>
+  <div id="aiStatus"></div>
+  <div class="grid g2">
+    <div class="card"><div class="card-head"><h3>Test-set performance</h3></div><div id="aiMetrics"></div></div>
+    <div class="card"><div class="card-head"><h3>Confusion matrix</h3></div><div id="aiCM"></div><p class="muted small">Positive class = donor returned to donate.</p></div>
+    <div class="card"><div class="card-head"><h3>Feature weights</h3></div><div id="aiW"></div><p class="muted small">Green = more likely to return · red = less likely.</p></div>
+    <div class="card"><div class="card-head"><h3>Dataset overview</h3></div><div id="aiData"></div></div>
+    <div class="card span2">
+      <div class="card-head"><h3>Try a prediction</h3></div>
+      <div class="form-grid">
+        <div><label class="f">Months since last donation (Recency)</label><input id="pR" type="number" min="0" value="4"></div>
+        <div><label class="f">Total donations (Frequency)</label><input id="pF" type="number" min="1" value="5"></div>
+        <div><label class="f">Months since first donation (Time)</label><input id="pT" type="number" min="0" value="30"></div>
+      </div>
+      <div id="pOut" style="margin-top:14px"></div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="foot">BloodLink Pro · educational blood-bank management system · eligibility results are a pre-screen only – the blood bank's medical officer makes the final decision · all data stays in this browser</footer>
+
+<script src="js/ui.js"></script>
+<script src="js/ml.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/blood.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
